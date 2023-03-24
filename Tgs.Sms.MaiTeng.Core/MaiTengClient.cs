@@ -57,7 +57,7 @@ public class MaiTengClient
 
         var sign = MaiTengHasher.ComputeHash(request.AppKey, request.AppSecret, timestamp);
 
-        var msgTemplate = $"【科技】{request.Msg}";
+        var msgTemplate = $"【資訊科技】{request.Msg}";
 
         var parameter = new Dictionary<string, string>
         {
