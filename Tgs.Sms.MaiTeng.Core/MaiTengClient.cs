@@ -71,21 +71,19 @@ public class MaiTengClient
 
         var content = new StringContent(JsonSerializer.Serialize(parameter), Encoding.UTF8, MediaTypeNames.Application.Json);
 
-        _logger.LogInformation("Sms MaiTeng Request:{parameter}", parameter);
+        _logger.LogInformation("Sms MaiTeng Request:{parameter}", JsonSerializer.Serialize(parameter));
 
         var httpResponseMessage = await _httpClient
             .PostAsync($"/sms/batch/v1", content)
             .ConfigureAwait(false);
-
-        var responseMessage = default(string);
-
-        var jsonResponse = await httpResponseMessage.Content.ReadAsStringAsync();
+        
+        var responseMessage = await httpResponseMessage.Content.ReadAsStringAsync();
 
         _logger.LogInformation("Sms MaiTeng Response:{responseMessage}", responseMessage);
 
         _ = httpResponseMessage.EnsureSuccessStatusCode();
 
-        var jsonNode = JsonNode.Parse(jsonResponse);
+        var jsonNode = JsonNode.Parse(responseMessage);
 
         var code = jsonNode!["code"]!.ToString();
 
