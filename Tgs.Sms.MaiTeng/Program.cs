@@ -1,19 +1,49 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using OpenTelemetry;
+using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Tgs.Sms.MaiTeng;
 using Tgs.Sms.MaiTeng.MessageQueue;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("/config/appsettings.json", true);
+builder.Configuration
+    .AddJsonFile("/config/appsettings.json", true)
+    .AddEnvironmentVariables();
 
-builder.Services.AddOpenTelemetryTracing(builder =>
-    builder
-        .AddAspNetCoreInstrumentation()
-        .AddSource("TGS.*")
+builder.Logging
+    .AddOpenTelemetry(options =>
+    {
+        options.IncludeFormattedMessage = true;
+        options.ParseStateValues = true;
+        _ = options.AddFluentdForwardExporter(fluentOptions =>
+        {
+            var nodeIp = builder.Configuration.GetValue<string>("NODE_IP");
+            fluentOptions.Host = nodeIp!;
+            fluentOptions.Tag = builder.Configuration.GetValue<string>("OTEL_SERVICE_NAME")!;
+            fluentOptions.UseMessagePack();
+        });
+    });
+
+builder.Services
+    .AddOpenTelemetry()
+    .WithTracing(builder => builder
+        .SetResourceBuilder(ResourceBuilder.CreateDefault()
+            .AddEnvironmentVariableDetector())
         .AddSource("Tgs.*")
-        .AddProcessor(new SimpleActivityExportProcessor(new PerformanceCounterExporter())));
+        .AddSource("TGS.*")
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddEntityFrameworkCoreInstrumentation(options => options.SetDbStatementForText = true)
+        .AddOtlpExporter())
+    .Services
+    .Configure<AspNetCoreInstrumentationOptions>(options => options.Filter =
+        httpContext => !httpContext.Request.Path.HasValue
+            || !httpContext.Request.Path.StartsWithSegments("/swagger")
+            && !httpContext.Request.Path.StartsWithSegments("/health")
+            && !httpContext.Request.Path.StartsWithSegments("/profiler/")
+            && !new[] { "html", "ico", "png", "jpg" }.Any(
+                ext => httpContext.Request.Path.Value.EndsWith($".{ext}")));
 
 builder.Services
     .AddMessageQueue()
@@ -53,7 +83,7 @@ builder.Services
     {
         var config = sp.GetRequiredService<IConfiguration>();
 
-        dbContextBuilder.UseNpgsql(config.GetConnectionString("Tgs"));
+        dbContextBuilder.UseNpgsql(config.GetConnectionString("Tgs")!);
     });
 
 builder.Services.AddHealthChecks();
@@ -68,13 +98,7 @@ var app = builder.Build();
 
 app.UseRouting();
 
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapGet("/", async context =>
-    {
-        await context.Response.WriteAsync("Hello World!");
-    });
-});
+app.MapGet("/", () => "Hello Sms MaiTeng");
 
 app.MapHealthChecks("/healthz");
 

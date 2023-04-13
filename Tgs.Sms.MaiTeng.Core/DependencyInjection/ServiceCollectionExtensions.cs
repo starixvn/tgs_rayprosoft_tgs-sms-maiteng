@@ -6,8 +6,8 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddMaiTengSms(
-    this IServiceCollection services,
-    Action<MaiTengSmsOptions, IServiceProvider> configure)
+        this IServiceCollection services,
+        Action<MaiTengSmsOptions, IServiceProvider> configure)
     => services.AddOptions<MaiTengSmsOptions>()
         .Configure(configure)
         .Services
