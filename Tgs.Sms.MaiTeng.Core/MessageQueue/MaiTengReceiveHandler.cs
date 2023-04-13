@@ -43,14 +43,12 @@ public class MaiTengReceiveHandler : IMessageHandler
         if (brandInfo == null)
         {
             _logger.LogInformation("Can't find brand info ({brandId})", brandId);
-
             return;
         }
 
         if (!brandInfo.SmsEnabled || brandInfo.SmsVendorSettings == null)
         {
             _logger.LogWarning("Brand setting warn");
-
             return;
         }
 
